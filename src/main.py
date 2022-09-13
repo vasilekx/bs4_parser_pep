@@ -7,7 +7,7 @@ import requests_cache
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from constants import BASE_DIR, MAIN_DOC_URL
+from constants import BASE_DIR, MAIN_DOC_URL, PEPS_URL
 from configs import configure_argument_parser, configure_logging
 from outputs import control_output
 from utils import get_response, find_tag
@@ -130,10 +130,35 @@ def download(session):
     logging.info(f'Архив {filename} был загружен и сохранён: {archive_path}')
 
 
+def pep(session):
+    response = get_response(session, PEPS_URL)
+    if response is None:
+        # Если основная страница не загрузится, программа закончит работу.
+        return
+    soup = BeautifulSoup(response.text, features='lxml')
+    numerical_index = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
+    # a = find_tag(numerical_index, 'a', attrs={'class': 'pep reference internal'})
+    a2 = numerical_index.find_all('a', attrs={'class': 'pep reference internal'})
+    # print(a2.prettify())
+    res = [a2[i].prettify() for i in range(len(a2))]
+    #print(res[0])
+    for _ in range(len(res)):
+        print(res[_])
+    print(len(res))
+
+    # нужна регулярка
+
+    #res.append(a2[0].prettify())
+    #print(*a2)
+    #print(res)
+    #print(len(a2))
+
+
 MODE_TO_FUNCTION = {
     'whats-new': whats_new,
     'latest-versions': latest_versions,
     'download': download,
+    'pep': pep,
 }
 
 

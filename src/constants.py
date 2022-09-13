@@ -3,7 +3,14 @@ from pathlib import Path
 MAIN_DOC_URL = 'https://docs.python.org/3/'
 BASE_DIR = Path(__file__).parent
 DATETIME_FORMAT = '%Y-%m-%d_%H-%M-%S'
-
-# WHATS_NEW_URL = 'https://docs.python.org/3/whatsnew/'
-
-# DOWNLOADS_URL = 'https://docs.python.org/3/download.html'
+EXPECTED_STATUS = {
+    'A': ['Active', 'Accepted'],
+    'D': ['Deferred'],
+    'F': ['Final'],
+    'P': ['Provisional'],
+    'R': ['Rejected'],
+    'S': ['Superseded'],
+    'W': ['Withdrawn'],
+    '': ['Draft', 'Active'],
+}
+PEPS_URL = 'https://peps.python.org/'
