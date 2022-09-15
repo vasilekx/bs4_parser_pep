@@ -1,72 +1,49 @@
 # main.py
-import re
 import logging
+import re
 from urllib.parse import urljoin
 
 import requests_cache
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from constants import BASE_DIR, MAIN_DOC_URL, PEPS_URL
 from configs import configure_argument_parser, configure_logging
+from constants import BASE_DIR, MAIN_DOC_URL, PEPS_URL, EXPECTED_STATUS
 from outputs import control_output
 from utils import get_response, find_tag
 
 
 def whats_new(session):
-    # Вместо константы WHATS_NEW_URL, используйте переменную whats_new_url.
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
-    # session = requests_cache.CachedSession()
-    # response = session.get(whats_new_url)
-    # response.encoding = 'utf-8'
     response = get_response(session, whats_new_url)
     if response is None:
-        # Если основная страница не загрузится, программа закончит работу.
         return
-
+    results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
     soup = BeautifulSoup(response.text, features='lxml')
-    # main_div = soup.find('section', attrs={'id': 'what-s-new-in-python'})
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = main_div.find('div', attrs={'class': 'toctree-wrapper'})
     sections_by_python = div_with_ul.find_all(
         'li',
         attrs={'class': 'toctree-l1'}
     )
-    # print(sections_by_python[0].prettify())
-
-    results = [('Ссылка на статью', 'Заголовок', 'Редактор, автор')]
-
     for section in tqdm(sections_by_python):
-        # version_a_tag = section.find('a')
         version_a_tag = find_tag(section, 'a')
         href = version_a_tag['href']
         version_link = urljoin(whats_new_url, href)
         section_session = requests_cache.CachedSession()
-        # section_response = section_session.get(version_link)
-        # section_response.encoding = 'utf-8'
         section_response = get_response(section_session, version_link)
         if section_response is None:
-            # Если страница не загрузится, программа перейдёт к следующей
-            # ссылке.
             continue
 
         section_soup = BeautifulSoup(section_response.text, features='lxml')
-        # dl = section_soup.find('dl')
-        # h1 = section_soup.find('h1')
         dl = find_tag(section_soup, 'dl')
         h1 = find_tag(section_soup, 'h1')
         dl_text = dl.text.replace('\n', ' ')
-        # print(version_link, h1.text, dl_text)
         results.append((version_link, h1.text, dl_text))
     return results
-    # for item in results:
-    #    print(*item)
 
 
 def latest_versions(session):
-    # session = requests_cache.CachedSession()
-    # response = session.get(MAIN_DOC_URL)
-    # response.encoding = 'utf-8'
     response = get_response(session, MAIN_DOC_URL)
     if response is None:
         return
@@ -74,7 +51,6 @@ def latest_versions(session):
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
 
     soup = BeautifulSoup(response.text, features='lxml')
-    # sidebar = soup.find('div', {'class': 'sphinxsidebarwrapper'})
     sidebar = find_tag(soup, 'div', {'class': 'sphinxsidebarwrapper'})
     ul_tags = sidebar.find_all('ul')
     for ul in ul_tags:
@@ -93,28 +69,20 @@ def latest_versions(session):
             version, status = a_tag.text, ''
         results.append((link, version, status,))
     return results
-    # for row in results:
-    #     print(*row)
 
 
 def download(session):
-    # Вместо константы DOWNLOADS_URL, используйте переменную downloads_url.
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
-    # session = requests_cache.CachedSession()
-    # response = session.get(downloads_url)
-    # response.encoding = 'utf-8'
     response = get_response(session, downloads_url)
     if response is None:
         return
-
+    pattern_file = r'.+pdf-a4\.zip$'
     soup = BeautifulSoup(response.text, features='lxml')
-    # table_tag = soup.find('table', attrs={'class': 'docutils'})
-    # pdf_a4_tag = table_tag.find('a', {'href': re.compile(r'.+pdf-a4\.zip$')})
     table_tag = find_tag(soup, 'table', attrs={'class': 'docutils'})
     pdf_a4_tag = find_tag(
         table_tag,
         'a',
-        {'href': re.compile(r'.+pdf-a4\.zip$')}
+        {'href': re.compile(pattern_file)}
     )
     pdf_a4_link = pdf_a4_tag['href']
     archive_url = urljoin(downloads_url, pdf_a4_link)
@@ -133,25 +101,59 @@ def download(session):
 def pep(session):
     response = get_response(session, PEPS_URL)
     if response is None:
-        # Если основная страница не загрузится, программа закончит работу.
         return
+    pattern_number = r'^\d+$'
+    pattern_status = r'^Status.*'
+    results = [('Статус', 'Количество')]
+    count_statuses = {}
     soup = BeautifulSoup(response.text, features='lxml')
-    numerical_index = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
-    # a = find_tag(numerical_index, 'a', attrs={'class': 'pep reference internal'})
-    a2 = numerical_index.find_all('a', attrs={'class': 'pep reference internal'})
-    # print(a2.prettify())
-    res = [a2[i].prettify() for i in range(len(a2))]
-    #print(res[0])
-    for _ in range(len(res)):
-        print(res[_])
-    print(len(res))
+    section_tag = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
+    tbody_tag = find_tag(section_tag, 'tbody')
+    tr_tags = tbody_tag.find_all('tr')
 
-    # нужна регулярка
-
-    #res.append(a2[0].prettify())
-    #print(*a2)
-    #print(res)
-    #print(len(a2))
+    for tr_tag in tqdm(tr_tags):
+        statuses = EXPECTED_STATUS[find_tag(tr_tag, 'td').text[1:]]
+        card_status = ''
+        href = find_tag(
+            tr_tag,
+            'a',
+            attrs={'class': 'pep reference internal'},
+            string=re.compile(pattern_number),
+        )['href']
+        pep_link = urljoin(PEPS_URL, href)
+        pep_session = requests_cache.CachedSession()
+        pep_response = get_response(pep_session, pep_link)
+        if pep_response is None:
+            continue
+        pep_soup = BeautifulSoup(pep_response.text, features='lxml')
+        dl_tag = find_tag(
+            pep_soup,
+            'dl',
+            attrs={'class': 'rfc2822 field-list simple'},
+        )
+        dt_tags = dl_tag.find_all('dt')
+        for dt_tag in dt_tags:
+            text_match = re.search(pattern_status, dt_tag.text)
+            if text_match:
+                card_status = dt_tag.find_next_sibling('dd').text
+                break
+            else:
+                continue
+        if card_status not in statuses:
+            logging.info(
+                f'Несовпадающие статусы: '
+                f'{pep_link} '
+                f'Статус в карточке: {card_status} '
+                f'Ожидаемые статусы: {statuses} ',
+            )
+        else:
+            if card_status not in count_statuses:
+                count_statuses[card_status] = 1
+            else:
+                count_statuses[card_status] += 1
+    results.extend([*count_statuses.items()])
+    results.append(['Total', len(tr_tags)])
+    return results
 
 
 MODE_TO_FUNCTION = {
