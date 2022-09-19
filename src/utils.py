@@ -25,7 +25,8 @@ def make_soup(session, url):
 
 
 def find_tag(soup, tag, attrs=None, string=''):
-    searched_tag = soup.find(tag, attrs=(attrs or {}), string=string)
+    attrs_find = {} if attrs is None else attrs
+    searched_tag = soup.find(tag, attrs=attrs_find, string=string)
     if searched_tag is None:
         raise ParserFindTagException(
             ERROR_MESSAGE.format(tag=tag, attrs=attrs)
