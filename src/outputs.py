@@ -26,13 +26,17 @@ def file_output(results, cli_args):
     """
     Проблема с тестами:
 
-    проходит тесты:
+    Проходит тесты:
+
     results_dir = BASE_DIR / 'results'
     results_dir = BASE_DIR / RESULTS_DIR_NAME
 
-    а это
+
+    а это:
+
     from constants import RESULTS_DIR
     results_dir = RESULTS_DIR
+
     почему-то не проходит тесты,
     хотя на практике все работает...
     """

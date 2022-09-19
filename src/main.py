@@ -1,18 +1,27 @@
 # main.py
 import logging
 import re
-from urllib.parse import urljoin
 from collections import defaultdict
+from urllib.parse import urljoin
 
 import requests_cache
-from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 from configs import configure_argument_parser, configure_logging
 from constants import (BASE_DIR, MAIN_DOC_URL, PEPS_URL, EXPECTED_STATUS,
                        WHATS_NEW_URL, DOWNLOADS_URL)
 from outputs import control_output
-from utils import get_response, find_tag, make_soup
+from utils import find_tag, make_soup
+
+STATUS_PEP_NOT_FOUND = (
+    'Несовпадающие статусы: '
+    '{pep_link} '
+    'Статус в карточке: {card_status} '
+    'Ожидаемые статусы: {statuses} '
+)
+PROGRAM_MALFUNCTION = (
+    'Сбой в работе программы: {error}'
+)
 
 
 def whats_new(session):
@@ -79,34 +88,21 @@ def download(session):
 
 
 def pep(session):
-    pattern_number = r'^\d+$'
     pattern_status = r'^Status.*'
     count_statuses = defaultdict(int)
     soup = make_soup(session, PEPS_URL)
     logs = []
-
-    # попробовать переделать
     for tr_tag in tqdm(soup.select('#numerical-index tbody tr')):
         statuses = EXPECTED_STATUS[find_tag(tr_tag, 'td').text[1:]]
         card_status = ''
-        href = find_tag(
-            tr_tag,
-            'a',
-            attrs={'class': 'pep reference internal'},
-            string=re.compile(pattern_number),
-        )['href']
-        pep_link = urljoin(PEPS_URL, href)
-        pep_session = requests_cache.CachedSession()
-        pep_response = get_response(pep_session, pep_link)
-        if pep_response is None:
-            continue
-        pep_soup = BeautifulSoup(pep_response.text, features='lxml')
-        dl_tag = find_tag(
-            pep_soup,
-            'dl',
-            attrs={'class': 'rfc2822 field-list simple'},
+        pep_link = urljoin(
+            PEPS_URL,
+            tr_tag.select_one('td a.pep.reference.internal')['href']
         )
-        dt_tags = dl_tag.find_all('dt')
+        pep_soup = make_soup(session, pep_link)
+        dt_tags = pep_soup.select_one('dl.rfc2822.field-list.simple').select(
+            'dt'
+        )
         for dt_tag in dt_tags:
             text_match = re.search(pattern_status, dt_tag.text)
             if text_match:
@@ -116,10 +112,11 @@ def pep(session):
                 continue
         if card_status not in statuses:
             logs.append(
-                f'Несовпадающие статусы: '
-                f'{pep_link} '
-                f'Статус в карточке: {card_status} '
-                f'Ожидаемые статусы: {statuses} ',
+                STATUS_PEP_NOT_FOUND.format(
+                    pep_link=pep_link,
+                    card_status=card_status,
+                    statuses=statuses
+                )
             )
         else:
             count_statuses[card_status] += 1
@@ -142,19 +139,22 @@ MODE_TO_FUNCTION = {
 
 def main():
     configure_logging()
-    logging.info('Парсер запущен!')
     arg_parser = configure_argument_parser(MODE_TO_FUNCTION.keys())
     args = arg_parser.parse_args()
+    logging.info('Парсер запущен!')
     logging.info(f'Аргументы командной строки: {args}')
     session = requests_cache.CachedSession()
     if args.clear_cache:
         session.cache.clear()
-
-    parser_mode = args.mode
-    results = MODE_TO_FUNCTION[parser_mode](session)
-
-    if results is not None:
-        control_output(results, args)
+    try:
+        results = MODE_TO_FUNCTION[args.mode](session)
+        if results is not None:
+            control_output(results, args)
+    except Exception as error:
+        logging.exception(
+            PROGRAM_MALFUNCTION.format(error=error),
+            stack_info=True
+        )
     logging.info('Парсер завершил работу.')
 
 
