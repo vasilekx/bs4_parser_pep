@@ -54,12 +54,9 @@ def file_output(results, cli_args):
 CASES_OUTPUT = {
     PRETTY_ARGUMENT_NAME: pretty_output,
     FILE_ARGUMENT_NAME: file_output,
-    'default': default_output,
+    None: default_output,
 }
 
 
 def control_output(results, cli_args):
-    CASES_OUTPUT.get(
-        cli_args.output,
-        CASES_OUTPUT['default']
-    )(results, cli_args)
+    CASES_OUTPUT.get(cli_args.output)(results, cli_args)
