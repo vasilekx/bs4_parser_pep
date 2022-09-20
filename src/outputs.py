@@ -51,11 +51,15 @@ def file_output(results, cli_args):
     logging.info(f'Файл {file_name} с результатами был сохранён: {file_path}')
 
 
-CASE_OUTPUT = {
-        PRETTY_ARGUMENT_NAME: pretty_output,
-        FILE_ARGUMENT_NAME: file_output,
-    }
+CASES_OUTPUT = {
+    PRETTY_ARGUMENT_NAME: pretty_output,
+    FILE_ARGUMENT_NAME: file_output,
+    'default': default_output,
+}
 
 
 def control_output(results, cli_args):
-    CASE_OUTPUT.get(cli_args.output, default_output)(*[results, cli_args])
+    CASES_OUTPUT.get(
+        cli_args.output,
+        CASES_OUTPUT['default']
+    )(results, cli_args)

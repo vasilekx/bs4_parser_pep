@@ -26,13 +26,11 @@ PROGRAM_MALFUNCTION = (
 
 def whats_new(session):
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
-
-    soup = make_soup(session, WHATS_NEW_URL)
-    sections_by_python = soup.select_one(
-        '#what-s-new-in-python div.toctree-wrapper'
-    ).select('li.toctree-l1')
-
-    for section in tqdm(sections_by_python):
+    for section in tqdm(
+        make_soup(session, WHATS_NEW_URL).select_one(
+            '#what-s-new-in-python div.toctree-wrapper'
+        ).select('li.toctree-l1')
+    ):
         version_link = urljoin(WHATS_NEW_URL, find_tag(section, 'a')['href'])
         section_soup = make_soup(session, version_link)
         results.append(
@@ -46,8 +44,9 @@ def whats_new(session):
 def latest_versions(session):
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
     pattern = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
-    soup = make_soup(session, MAIN_DOC_URL)
-    for ul in soup.select('div.sphinxsidebarwrapper ul'):
+    for ul in make_soup(session, MAIN_DOC_URL).select(
+        'div.sphinxsidebarwrapper ul'
+    ):
         if 'All versions' in ul.text:
             a_tags = ul.find_all('a')
             break
@@ -66,10 +65,11 @@ def latest_versions(session):
 
 def download(session):
     pattern_file = '-docs-pdf-a4.zip'
-    soup = make_soup(session, DOWNLOADS_URL)
     archive_url = urljoin(
         DOWNLOADS_URL,
-        soup.select_one(f'table.docutils a[href$="{pattern_file}"]')['href']
+        make_soup(session, DOWNLOADS_URL).select_one(
+            f'table.docutils a[href$="{pattern_file}"]'
+        )['href']
     )
     filename = archive_url.split('/')[-1]
 
@@ -78,9 +78,8 @@ def download(session):
     # Тесты не проходит
     # from constants import DOWNLOADS_DIR
 
-    downloads_dir = DOWNLOADS_DIR
-    downloads_dir.mkdir(exist_ok=True)
-    archive_path = downloads_dir / filename
+    DOWNLOADS_DIR.mkdir(exist_ok=True)
+    archive_path = DOWNLOADS_DIR / filename
     response = session.get(archive_url)
     with open(archive_path, 'wb') as file:
         file.write(response.content)
@@ -90,16 +89,21 @@ def download(session):
 def pep(session):
     pattern_status = r'^Status.*'
     count_statuses = defaultdict(int)
-    soup = make_soup(session, PEPS_URL)
     logs = []
-    for tr_tag in tqdm(soup.select('#numerical-index tbody tr')):
+    for tr_tag in tqdm(
+        make_soup(session, PEPS_URL).select('#numerical-index tbody tr')
+    ):
         statuses = EXPECTED_STATUS[find_tag(tr_tag, 'td').text[1:]]
         card_status = ''
         pep_link = urljoin(
             PEPS_URL,
             tr_tag.select_one('td a.pep.reference.internal')['href']
         )
-        pep_soup = make_soup(session, pep_link)
+        try:
+            pep_soup = make_soup(session, pep_link)
+        except ConnectionError as error:
+            logs.append(error)
+            continue
         dt_tags = pep_soup.select_one('dl.rfc2822.field-list.simple').select(
             'dt'
         )
@@ -143,10 +147,10 @@ def main():
     args = arg_parser.parse_args()
     logging.info('Парсер запущен!')
     logging.info(f'Аргументы командной строки: {args}')
-    session = requests_cache.CachedSession()
-    if args.clear_cache:
-        session.cache.clear()
     try:
+        session = requests_cache.CachedSession()
+        if args.clear_cache:
+            session.cache.clear()
         results = MODE_TO_FUNCTION[args.mode](session)
         if results is not None:
             control_output(results, args)

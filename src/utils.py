@@ -14,14 +14,11 @@ def get_response(session, url):
         response.encoding = 'utf-8'
         return response
     except RequestException:
-        raise RequestException(RESPONSE_ERROR.format(url=url))
+        raise ConnectionError(RESPONSE_ERROR.format(url=url))
 
 
 def make_soup(session, url):
-    response = get_response(session, url)
-    if response is None:
-        return
-    return BeautifulSoup(response.text, features='lxml')
+    return BeautifulSoup(get_response(session, url).text, features='lxml')
 
 
 def find_tag(soup, tag, attrs=None, string=''):

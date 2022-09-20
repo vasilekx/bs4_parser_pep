@@ -102,17 +102,17 @@ python main.py pep -o file
 ```
 Содержимое файла **pep_2022-09-15_21-44-20.csv**:
 
-|Статус    |Количество|
-|----------|----------|
-|Active    |36        |
-|Superseded|16        |
-|Withdrawn |54        |
-|Final     |263       |
-|Rejected  |118       |
-|Deferred  |37        |
-|Accepted  |40        |
-|Draft     |30        |
-|Total     |595       |
+|Статус    | Количество |
+|----------|------------|
+|Active    | 36         |
+|Superseded| 16         |
+|Withdrawn | 54         |
+|Final     | 263        |
+|Rejected  | 118        |
+|Deferred  | 37         |
+|Accepted  | 40         |
+|Draft     | 30         |
+|Total     | 594        |
 
 
 ### Автор
